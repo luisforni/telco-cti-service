@@ -1,15 +1,15 @@
-FROM golang:1.24-alpine AS builder
-WORKDIR /app
-COPY go.mod go.sum* ./
-RUN go mod download
-COPY . .
-RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o cti .
+FROM python:3.11-slim
 
-FROM alpine:3.19
-RUN apk add --no-cache ca-certificates tzdata
 WORKDIR /app
-COPY --from=builder /app/cti .
-EXPOSE 8080
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY . .
+
+EXPOSE 8006
+
 HEALTHCHECK --interval=15s --timeout=5s --retries=3 \
-  CMD wget -qO- http://localhost:8080/healthz || exit 1
-ENTRYPOINT ["./cti"]
+  CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8006/healthz')" || exit 1
+
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8006"]
